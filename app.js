@@ -505,8 +505,23 @@ function bindGlobalEvents() {
 
     if (action === "toggle-sound") toggleAmbient();
     if (action === "soft-line") updateSoftLine();
-    if (action === "save-journal") saveJournal();
-    if (action === "clear-draft") clearDraft();
+    if (action === "save-journal") {
+      const draft = document.querySelector("#journalDraft");
+      const text = (draft ? draft.value : state.journalDraft).trim();
+      if (text) {
+        state.journal.push({ text, time: formatDate(new Date()) });
+        state.journalDraft = "";
+        saveState();
+        renderPanel();
+      }
+    }
+    if (action === "clear-draft") {
+      const draft = document.querySelector("#journalDraft");
+      if (draft) draft.value = "";
+      state.journalDraft = "";
+      saveState();
+      renderPanel();
+    }
     if (action === "toggle-timer") toggleTimer();
     if (action === "reset-timer") resetTimer();
     if (action === "clear-chat") {
