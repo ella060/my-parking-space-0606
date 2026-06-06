@@ -915,6 +915,24 @@ button {
   background: rgba(245, 234, 217, 0.07);
 }
 
+.entry-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.entry-del {
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.72rem;
+  cursor: pointer;
+  padding: 0 2px;
+  opacity: 0.5;
+  line-height: 1;
+}
+.entry-del:hover { opacity: 1; }
+
 .entry-item p,
 .keepsake-item p {
   margin: 4px 0 0;

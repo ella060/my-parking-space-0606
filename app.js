@@ -269,12 +269,18 @@ function renderJournal() {
         .slice()
         .reverse()
         .map(
-          (entry) => `
+          (entry, i) => {
+            const originalIndex = state.journal.length - 1 - i;
+            return `
             <article class="entry-item">
-              <time>${entry.time}</time>
+              <div class="entry-header">
+                <time>${entry.time}</time>
+                <button class="entry-del" type="button" data-del-entry="${originalIndex}" aria-label="删除">✕</button>
+              </div>
               <p>${escapeHtml(entry.text)}</p>
             </article>
-          `,
+          `;
+          },
         )
         .join("")
     : `<p class="quiet-copy">日记本还是空的。它不等你写好，只等你放下。</p>`;
@@ -496,7 +502,7 @@ function bindGlobalEvents() {
   });
 
   panelContent.addEventListener("click", (event) => {
-    const target = event.target.closest("[data-panel-action], [data-duration], [data-theme-choice], [data-char-id], [data-del-char]");
+    const target = event.target.closest("[data-panel-action], [data-duration], [data-theme-choice], [data-char-id], [data-del-char], [data-del-entry]");
     if (!target) return;
 
     const action = target.dataset.panelAction;
@@ -531,6 +537,15 @@ function bindGlobalEvents() {
     }
     if (duration) setDuration(Number(duration));
     if (theme) setTheme(theme);
+
+    // 日记删除
+    if (target.dataset.delEntry !== undefined) {
+      const idx = Number(target.dataset.delEntry);
+      state.journal.splice(idx, 1);
+      saveState();
+      renderPanel();
+      return;
+    }
 
     // 角色管理
     if (action === "show-add-char") {
