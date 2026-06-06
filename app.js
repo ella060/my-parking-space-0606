@@ -105,7 +105,6 @@ function loadState() {
       duration: 18 * 60,
       remaining: 18 * 60,
       running: false,
-      endTime: null,
     },
     characters: [{ id: "char-0", name: "默认陪伴者", desc: "温柔、简短、克制，像坐在你旁边" }],
     activeCharId: "char-0",
@@ -117,7 +116,7 @@ function loadState() {
     return saved ? {
       ...fallback,
       ...saved,
-      timer: { ...fallback.timer, ...saved.timer, endTime: null },
+      timer: { ...fallback.timer, ...saved.timer },
       characters: (saved.characters && saved.characters.length) ? saved.characters : fallback.characters,
       activeCharId: saved.activeCharId || "char-0",
       soundPreset: saved.soundPreset || "rain",
@@ -311,7 +310,6 @@ function renderJournal() {
 }
 
 function renderFocus() {
-  const isCustom = ![5, 10, 18, 25].includes(state.timer.duration / 60);
   return `
     <div class="mode-block">
       <div class="timer-face">
@@ -327,11 +325,6 @@ function renderFocus() {
               `<button class="choice-action ${state.timer.duration === minute * 60 ? "is-selected" : ""}" type="button" data-duration="${minute}">${minute} 分</button>`,
           )
           .join("")}
-        <label class="custom-duration-label">
-          <input id="customDuration" class="custom-duration-input" type="number"
-                 min="1" max="999" placeholder="自定义" ${isCustom ? `value="${state.timer.duration / 60}"` : ""} />
-          <span>分</span>
-        </label>
       </div>
       <div class="timer-actions">
         <button class="secondary-action" type="button" data-panel-action="toggle-timer">${state.timer.running ? "暂停" : "开始"}</button>
@@ -423,14 +416,6 @@ function bindPanelControls() {
     draft.addEventListener("input", () => {
       state.journalDraft = draft.value;
       saveState();
-    });
-  }
-
-  const customDur = document.querySelector("#customDuration");
-  if (customDur) {
-    customDur.addEventListener("change", () => {
-      const v = parseInt(customDur.value, 10);
-      if (v >= 1 && v <= 999) setDuration(v);
     });
   }
 
@@ -822,7 +807,6 @@ function toggleTimer() {
     stopTimer();
   } else {
     state.timer.running = true;
-    state.timer.endTime = Date.now() + state.timer.remaining * 1000;
     timerId = window.setInterval(tickTimer, 1000);
   }
   saveState();
@@ -831,7 +815,6 @@ function toggleTimer() {
 
 function stopTimer() {
   state.timer.running = false;
-  state.timer.endTime = null;
   if (timerId) {
     window.clearInterval(timerId);
     timerId = null;
@@ -846,32 +829,19 @@ function resetTimer() {
 }
 
 function tickTimer() {
-  if (!state.timer.endTime) return;
-  const remaining = Math.max(0, Math.round((state.timer.endTime - Date.now()) / 1000));
-  state.timer.remaining = remaining;
+  state.timer.remaining = Math.max(0, state.timer.remaining - 1);
   const timerTime = document.querySelector("#timerTime");
-  if (timerTime) timerTime.textContent = formatTime(remaining);
+  if (timerTime) timerTime.textContent = formatTime(state.timer.remaining);
 
-  if (remaining === 0) {
+  if (state.timer.remaining === 0) {
     stopTimer();
     state.chat.push({
       role: "companion",
       text: "刚刚那一小段时间，已经被你安静地留给自己了。",
     });
     saveState();
-    showTimerDoneOverlay();
     if (activeMode === "focus") renderPanel();
   }
-}
-
-function showTimerDoneOverlay() {
-  const overlay = document.getElementById("timerDoneOverlay");
-  if (!overlay) return;
-  overlay.classList.add("is-visible");
-  document.getElementById("timerDoneConfirm")?.addEventListener("click", () => {
-    overlay.classList.remove("is-visible");
-    resetTimer();
-  }, { once: true });
 }
 
 function formatTime(seconds) {
@@ -956,22 +926,6 @@ function init() {
   applyTheme();
   document.querySelector("#lampToggle").classList.toggle("is-on", state.lampOn);
   bindGlobalEvents();
-
-  document.addEventListener("visibilitychange", () => {
-    if (document.visibilityState === "visible" && state.timer.running && state.timer.endTime) {
-      const remaining = Math.max(0, Math.round((state.timer.endTime - Date.now()) / 1000));
-      state.timer.remaining = remaining;
-      if (remaining === 0) {
-        stopTimer();
-        state.chat.push({ role: "companion", text: "刚刚那一小段时间，已经被你安静地留给自己了。" });
-        saveState();
-        showTimerDoneOverlay();
-        if (activeMode === "focus") renderPanel();
-      } else {
-        if (activeMode === "focus") renderPanel();
-      }
-    }
-  });
 }
 
 init();
