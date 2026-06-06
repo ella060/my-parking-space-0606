@@ -258,6 +258,7 @@ function renderChat() {
         <input id="chatInput" autocomplete="off" placeholder="慢慢说，几个字也可以" />
         <button class="secondary-action" type="submit">发送</button>
       </form>
+      ${state.chat.length > 0 ? `<button class="clear-chat-btn" type="button" data-panel-action="clear-chat">清空记录</button>` : ""}
     </div>
   `;
 }
@@ -508,6 +509,11 @@ function bindGlobalEvents() {
     if (action === "clear-draft") clearDraft();
     if (action === "toggle-timer") toggleTimer();
     if (action === "reset-timer") resetTimer();
+    if (action === "clear-chat") {
+      state.chat = [];
+      saveState();
+      renderPanel();
+    }
     if (duration) setDuration(Number(duration));
     if (theme) setTheme(theme);
 

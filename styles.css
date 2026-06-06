@@ -1179,3 +1179,17 @@ button {
   display: flex;
   gap: 8px;
 }
+
+.clear-chat-btn {
+  display: block;
+  margin: 4px auto 0;
+  padding: 4px 12px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.75rem;
+  cursor: pointer;
+  opacity: 0.6;
+}
+.clear-chat-btn:hover { opacity: 1; }
