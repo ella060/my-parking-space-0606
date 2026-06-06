@@ -247,7 +247,7 @@ function renderChat() {
       </div>
       <div class="add-char-form hidden" id="addCharForm">
         <input id="newCharName" placeholder="给 TA 起个名字" maxlength="20" autocomplete="off" />
-        <textarea id="newCharDesc" placeholder="性格、说话风格、和你的关系…" rows="2" maxlength="200"></textarea>
+        <textarea id="newCharDesc" placeholder="直接写这个角色的设定，这段文字会原封不动作为 system prompt 发给模型。例如：你是一个温柔的老朋友，说话轻声细语，不催促，偶尔用类比帮我看清问题。" rows="4" maxlength="1000"></textarea>
         <div class="add-char-actions">
           <button class="secondary-action" type="button" data-panel-action="save-char">保存角色</button>
           <button class="secondary-action" type="button" data-panel-action="cancel-add-char">取消</button>
@@ -418,8 +418,8 @@ async function companionReply(text) {
 
   const chars = state.characters || [];
   const char = chars.find((c) => c.id === state.activeCharId) || chars[0];
-  const systemPrompt = char
-    ? `你叫「${char.name}」，是「我的停车位」App 里用户的线上陪伴者。${char.desc}。你只说中文，回复简短（1–4 句），不说教、不给建议，除非对方主动问你。`
+  const systemPrompt = char && char.desc
+    ? char.desc
     : companionPrompt;
 
   const history = state.chat.slice(-12).map((m) => ({
@@ -434,10 +434,14 @@ async function companionReply(text) {
       headers: { "content-type": "application/json" },
       body: JSON.stringify({ messages: history, systemPrompt }),
     });
-    if (!res.ok) throw new Error("api_error");
     const data = await res.json();
+    if (!res.ok) {
+      console.error("API error:", data);
+      return companionFallback(text);
+    }
     return data.text || companionFallback(text);
-  } catch {
+  } catch (err) {
+    console.error("fetch failed:", err);
     return companionFallback(text);
   }
 }
