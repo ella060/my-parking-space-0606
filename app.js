@@ -374,14 +374,17 @@ function bindPanelControls() {
       input.disabled = true;
       state.chat.push({ role: "user", text });
       renderPanel();
+      const freshInput = document.querySelector("#chatInput");
+      if (freshInput) freshInput.disabled = true;
       const log = document.querySelector("#chatLog");
       if (log) log.scrollTop = log.scrollHeight;
 
       const reply = await companionReply(text);
       state.chat.push({ role: "companion", text: reply });
       saveState();
-      input.disabled = false;
       renderPanel();
+      const restoredInput = document.querySelector("#chatInput");
+      if (restoredInput) restoredInput.disabled = false;
       const log2 = document.querySelector("#chatLog");
       if (log2) log2.scrollTop = log2.scrollHeight;
     });
@@ -521,7 +524,8 @@ function bindGlobalEvents() {
       const desc = (document.querySelector("#newCharDesc")?.value || "").trim();
       if (!name) return;
       const id = "char-" + Date.now();
-      state.characters.push({ id, name, desc: desc || "温柔地陪着你" });
+      const defaultDesc = `你是一个温柔的线上陪伴者，你的名字叫「${name}」。用简短的中文回复，1到4句话，不说教、不给建议，除非对方主动问你。`;
+      state.characters.push({ id, name, desc: desc || defaultDesc });
       state.activeCharId = id;
       saveState();
       renderPanel();
@@ -536,6 +540,7 @@ function bindGlobalEvents() {
     }
     if (target.dataset.charId && !target.dataset.delChar && target.classList.contains("char-card")) {
       state.activeCharId = target.dataset.charId;
+      state.chat = state.chat.slice(-3);
       saveState();
       renderPanel();
     }
