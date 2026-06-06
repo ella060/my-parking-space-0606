@@ -74,13 +74,13 @@
             <span class="window-view"></span>
             <span class="projector-glow"></span>
           </div>
-          <button class="room-object window-object" type="button" data-mode="daze" aria-label="打开窗边发呆模式"></button>
-          <button class="room-object lamp-object is-on" type="button" id="lampToggle" aria-label="切换桌灯"></button>
-          <button class="room-object couch-object" type="button" data-mode="chat" aria-label="坐到沙发旁倾诉"></button>
-          <button class="room-object diary-object" type="button" data-mode="journal" aria-label="打开日记本"></button>
-          <button class="room-object speaker-object" type="button" data-mode="daze" aria-label="打开白噪音"></button>
-          <button class="room-object storage-object" type="button" data-mode="keepsake" aria-label="打开储物箱"></button>
-          <button class="room-object projector-object" type="button" data-mode="focus" aria-label="打开轻量计时"></button>
+          <button class="room-object window-object" type="button" data-mode="daze" data-object-id="window" aria-label="打开窗边发呆模式"></button>
+          <button class="room-object lamp-object is-on" type="button" id="lampToggle" data-object-id="lamp" aria-label="切换桌灯"></button>
+          <button class="room-object couch-object" type="button" data-mode="chat" data-object-id="couch" aria-label="坐到沙发旁倾诉"></button>
+          <button class="room-object diary-object" type="button" data-mode="journal" data-object-id="diary" aria-label="打开日记本"></button>
+          <button class="room-object speaker-object" type="button" data-mode="daze" data-object-id="speaker" aria-label="打开白噪音"></button>
+          <button class="room-object storage-object" type="button" data-mode="keepsake" data-object-id="storage" aria-label="打开储物箱"></button>
+          <button class="room-object projector-object" type="button" data-mode="focus" data-object-id="projector" aria-label="打开轻量计时"></button>
         </div>
 
         <nav class="mode-dock" aria-label="空间功能">
@@ -90,6 +90,35 @@
           <button type="button" data-mode="focus">停一会</button>
           <button type="button" data-mode="decorate">布置</button>
         </nav>
+
+        <div class="street-view" id="streetView" aria-hidden="true">
+          <div class="street-scene">
+            <div class="street-sky"></div>
+            <div class="street-buildings">
+              <span class="tower tower-a"></span>
+              <span class="tower tower-b"></span>
+              <span class="tower tower-c"></span>
+              <span class="tower tower-d"></span>
+            </div>
+            <div class="street-ground">
+              <div class="street-road"></div>
+              <div class="street-lamp"></div>
+              <div class="street-lamp street-lamp-r"></div>
+            </div>
+            <div class="container-frame">
+              <div class="frame-left"></div>
+              <div class="frame-right"></div>
+              <div class="frame-top"></div>
+            </div>
+          </div>
+          <nav class="street-dock" aria-label="街景功能入口">
+            <button type="button" data-mode="daze">发呆</button>
+            <button type="button" data-mode="chat">倾诉</button>
+            <button type="button" data-mode="journal">日记</button>
+            <button type="button" data-mode="focus">停一会</button>
+          </nav>
+          <button class="ghost-action street-back" type="button" id="streetBack">← 回小屋</button>
+        </div>
       </section>
 
       <section class="screen screen-exit" id="exitScreen" aria-labelledby="exitTitle">
@@ -118,6 +147,14 @@
         <div class="panel-content" id="panelContent"></div>
       </div>
     </aside>
+
+    <div class="timer-done-overlay" id="timerDoneOverlay">
+      <div class="timer-done-card">
+        <p class="timer-done-msg">时间到了。</p>
+        <p class="timer-done-sub">你刚刚安静地留住了这一小段。</p>
+        <button class="secondary-action" id="timerDoneConfirm">好，我知道了</button>
+      </div>
+    </div>
 
     <script src="app.js"></script>
   </body>
