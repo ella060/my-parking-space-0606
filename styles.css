@@ -743,7 +743,7 @@ button {
 
 .panel-sheet {
   width: min(100%, 430px);
-  max-height: 78dvh;
+  max-height: var(--sheet-h, 78dvh);
   overflow: hidden;
   border: 1px solid var(--line);
   border-bottom: 0;
@@ -760,6 +760,8 @@ button {
   margin: 10px auto 8px;
   border-radius: 999px;
   background: rgba(245, 234, 217, 0.24);
+  cursor: ns-resize;
+  touch-action: none;
 }
 
 .panel-header {
@@ -767,7 +769,7 @@ button {
 }
 
 .panel-content {
-  max-height: calc(78dvh - 96px);
+  max-height: calc(var(--sheet-h, 78dvh) - 96px);
   overflow-y: auto;
   padding: 0 18px 22px;
 }
@@ -1083,4 +1085,97 @@ button {
   .timer-time {
     font-size: 2.55rem;
   }
+}
+
+/* ── 倾诉模式：角色 UI ─────────────────────────────────────── */
+
+.char-row {
+  display: flex;
+  gap: 8px;
+  overflow-x: auto;
+  padding-bottom: 2px;
+  scrollbar-width: none;
+}
+.char-row::-webkit-scrollbar { display: none; }
+
+.char-card {
+  flex-shrink: 0;
+  width: 108px;
+  padding: 8px 10px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  cursor: pointer;
+  position: relative;
+  background: rgba(245, 234, 217, 0.04);
+  text-align: left;
+}
+.char-card.is-active {
+  border-color: var(--accent);
+  background: rgba(213, 154, 98, 0.10);
+}
+.char-name {
+  display: block;
+  font-size: 0.88rem;
+  font-weight: 500;
+  color: var(--paper);
+}
+.char-desc {
+  display: block;
+  font-size: 0.72rem;
+  color: var(--muted);
+  margin-top: 2px;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.char-del {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+  padding: 0 3px;
+  background: none;
+  border: none;
+  color: var(--muted);
+  font-size: 0.7rem;
+  cursor: pointer;
+  line-height: 1;
+}
+.char-add-btn {
+  flex-shrink: 0;
+  align-self: center;
+  padding: 6px 12px;
+  border: 1px dashed var(--line);
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  font-size: 0.82rem;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.add-char-form {
+  display: grid;
+  gap: 8px;
+}
+.add-char-form.hidden { display: none; }
+.add-char-form input,
+.add-char-form textarea {
+  width: 100%;
+  padding: 8px 10px;
+  background: rgba(245, 234, 217, 0.06);
+  border: 1px solid var(--line);
+  border-radius: 6px;
+  color: var(--paper);
+  font-family: var(--font);
+  font-size: 0.9rem;
+  resize: none;
+}
+.add-char-form input:focus,
+.add-char-form textarea:focus {
+  outline: none;
+  border-color: rgba(213, 154, 98, 0.5);
+}
+.add-char-actions {
+  display: flex;
+  gap: 8px;
 }

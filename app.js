@@ -106,11 +106,19 @@ function loadState() {
       remaining: 18 * 60,
       running: false,
     },
+    characters: [{ id: "char-0", name: "默认陪伴者", desc: "温柔、简短、克制，像坐在你旁边" }],
+    activeCharId: "char-0",
   };
 
   try {
     const saved = JSON.parse(localStorage.getItem(STORAGE_KEY));
-    return saved ? { ...fallback, ...saved, timer: { ...fallback.timer, ...saved.timer } } : fallback;
+    return saved ? {
+      ...fallback,
+      ...saved,
+      timer: { ...fallback.timer, ...saved.timer },
+      characters: (saved.characters && saved.characters.length) ? saved.characters : fallback.characters,
+      activeCharId: saved.activeCharId || "char-0",
+    } : fallback;
   } catch {
     return fallback;
   }
@@ -181,6 +189,7 @@ function openPanel(mode) {
 }
 
 function closePanel() {
+  document.querySelector(".panel-sheet").style.removeProperty("--sheet-h");
   panel.classList.remove("is-open");
   panel.setAttribute("aria-hidden", "true");
   activeMode = null;
@@ -217,13 +226,33 @@ function renderDaze() {
 }
 
 function renderChat() {
+  const chars = state.characters || [];
+  const charCards = chars.map((c) => `
+    <div class="char-card ${state.activeCharId === c.id ? "is-active" : ""}" data-char-id="${c.id}">
+      <span class="char-name">${escapeHtml(c.name)}</span>
+      <span class="char-desc">${escapeHtml(c.desc)}</span>
+      ${chars.length > 1 ? `<button class="char-del" data-del-char="${c.id}" type="button">✕</button>` : ""}
+    </div>
+  `).join("");
+
   const messages = state.chat
     .map((message) => `<div class="message ${message.role}">${escapeHtml(message.text)}</div>`)
     .join("");
 
   return `
     <div class="mode-block">
-      <p class="quiet-copy">这里不会主动打扰你。你说一句，我就接住一句。</p>
+      <div class="char-row">
+        ${charCards}
+        <button class="char-add-btn" type="button" data-panel-action="show-add-char">+ 新角色</button>
+      </div>
+      <div class="add-char-form hidden" id="addCharForm">
+        <input id="newCharName" placeholder="给 TA 起个名字" maxlength="20" autocomplete="off" />
+        <textarea id="newCharDesc" placeholder="性格、说话风格、和你的关系…" rows="2" maxlength="200"></textarea>
+        <div class="add-char-actions">
+          <button class="secondary-action" type="button" data-panel-action="save-char">保存角色</button>
+          <button class="secondary-action" type="button" data-panel-action="cancel-add-char">取消</button>
+        </div>
+      </div>
       <div class="chat-log" id="chatLog">${messages}</div>
       <form class="chat-form" id="chatForm">
         <input id="chatInput" autocomplete="off" placeholder="慢慢说，几个字也可以" />
@@ -336,19 +365,29 @@ function renderKeepsake() {
 function bindPanelControls() {
   const chatForm = document.querySelector("#chatForm");
   if (chatForm) {
-    chatForm.addEventListener("submit", (event) => {
+    chatForm.addEventListener("submit", async (event) => {
       event.preventDefault();
       const input = document.querySelector("#chatInput");
       const text = input.value.trim();
       if (!text) return;
+      input.value = "";
+      input.disabled = true;
       state.chat.push({ role: "user", text });
-      state.chat.push({ role: "companion", text: companionReply(text) });
-      saveState();
       renderPanel();
       const log = document.querySelector("#chatLog");
-      log.scrollTop = log.scrollHeight;
+      if (log) log.scrollTop = log.scrollHeight;
+
+      const reply = await companionReply(text);
+      state.chat.push({ role: "companion", text: reply });
+      saveState();
+      input.disabled = false;
+      renderPanel();
+      const log2 = document.querySelector("#chatLog");
+      if (log2) log2.scrollTop = log2.scrollHeight;
     });
   }
+
+  // 角色卡片切换 & 删除（事件委托到 panelContent，由 bindGlobalEvents 里统一处理）
 
   const draft = document.querySelector("#journalDraft");
   if (draft) {
@@ -372,33 +411,44 @@ function bindPanelControls() {
   }
 }
 
-function companionReply(text) {
-  const value = text.toLowerCase();
-
-  if (/死|自杀|不想活|伤害自己|撑不下去/.test(value)) {
+async function companionReply(text) {
+  if (/死|自杀|不想活|伤害自己|撑不下去/.test(text)) {
     return "听起来你现在很危险，也很累。请先联系身边可信的人，或立刻拨打当地紧急电话。你不用一个人扛过这一刻。";
   }
 
-  if (/累|疲|困|撑|崩|烦/.test(value)) {
-    return "嗯，我听见了。那我们先不解决它，你可以只是在这里坐一会儿。";
-  }
+  const chars = state.characters || [];
+  const char = chars.find((c) => c.id === state.activeCharId) || chars[0];
+  const systemPrompt = char
+    ? `你叫「${char.name}」，是「我的停车位」App 里用户的线上陪伴者。${char.desc}。你只说中文，回复简短（1–4 句），不说教、不给建议，除非对方主动问你。`
+    : companionPrompt;
 
-  if (/哭|难过|委屈|孤独|孤单/.test(value)) {
-    return "这份难受可以先放在这里。我在，你不用把它整理得很像样。";
-  }
+  const history = state.chat.slice(-12).map((m) => ({
+    role: m.role === "user" ? "user" : "assistant",
+    content: m.text,
+  }));
+  history.push({ role: "user", content: text });
 
-  if (/乱|不知道|混乱|想不清/.test(value)) {
-    return "不用马上讲清楚。你可以只说最靠近心口的那一句，剩下的我们慢慢来。";
+  try {
+    const res = await fetch("/api/chat", {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({ messages: history, systemPrompt }),
+    });
+    if (!res.ok) throw new Error("api_error");
+    const data = await res.json();
+    return data.text || companionFallback(text);
+  } catch {
+    return companionFallback(text);
   }
+}
 
-  if (/工作|上班|领导|同事|加班/.test(value)) {
-    return "先让工作的声音留在门外一会儿。现在这里不是会议室，只是你的小屋。";
-  }
-
-  if (/谢谢|好点|好多了/.test(value)) {
-    return "那就让这点松动多停一会儿。你不需要马上回到很用力的状态。";
-  }
-
+function companionFallback(text) {
+  const value = text.toLowerCase();
+  if (/累|疲|困|撑|崩|烦/.test(value)) return "嗯，我听见了。那我们先不解决它，你可以只是在这里坐一会儿。";
+  if (/哭|难过|委屈|孤独|孤单/.test(value)) return "这份难受可以先放在这里。我在，你不用把它整理得很像样。";
+  if (/乱|不知道|混乱|想不清/.test(value)) return "不用马上讲清楚。你可以只说最靠近心口的那一句，剩下的我们慢慢来。";
+  if (/工作|上班|领导|同事|加班/.test(value)) return "先让工作的声音留在门外一会儿。现在这里不是会议室，只是你的小屋。";
+  if (/谢谢|好点|好多了/.test(value)) return "那就让这点松动多停一会儿。你不需要马上回到很用力的状态。";
   const replies = [
     "我在。你可以慢慢说，也可以先停在这里。",
     "这句话已经够了，不用把所有来龙去脉都交代清楚。",
@@ -437,7 +487,7 @@ function bindGlobalEvents() {
   });
 
   panelContent.addEventListener("click", (event) => {
-    const target = event.target.closest("[data-panel-action], [data-duration], [data-theme-choice]");
+    const target = event.target.closest("[data-panel-action], [data-duration], [data-theme-choice], [data-char-id], [data-del-char]");
     if (!target) return;
 
     const action = target.dataset.panelAction;
@@ -452,7 +502,41 @@ function bindGlobalEvents() {
     if (action === "reset-timer") resetTimer();
     if (duration) setDuration(Number(duration));
     if (theme) setTheme(theme);
+
+    // 角色管理
+    if (action === "show-add-char") {
+      const f = document.querySelector("#addCharForm");
+      if (f) f.classList.remove("hidden");
+    }
+    if (action === "cancel-add-char") {
+      const f = document.querySelector("#addCharForm");
+      if (f) f.classList.add("hidden");
+    }
+    if (action === "save-char") {
+      const name = (document.querySelector("#newCharName")?.value || "").trim();
+      const desc = (document.querySelector("#newCharDesc")?.value || "").trim();
+      if (!name) return;
+      const id = "char-" + Date.now();
+      state.characters.push({ id, name, desc: desc || "温柔地陪着你" });
+      state.activeCharId = id;
+      saveState();
+      renderPanel();
+    }
+    if (target.dataset.delChar) {
+      event.stopPropagation();
+      const id = target.dataset.delChar;
+      state.characters = state.characters.filter((c) => c.id !== id);
+      if (state.activeCharId === id) state.activeCharId = state.characters[0]?.id || "";
+      saveState();
+      renderPanel();
+    }
+    if (target.dataset.charId && !target.dataset.delChar && target.classList.contains("char-card")) {
+      state.activeCharId = target.dataset.charId;
+      saveState();
+      renderPanel();
+    }
   });
+  bindPanelGripDrag();
 }
 
 function toggleAmbient() {
@@ -605,6 +689,56 @@ function escapeHtml(value) {
     .replaceAll(">", "&gt;")
     .replaceAll('"', "&quot;")
     .replaceAll("'", "&#039;");
+}
+
+function bindPanelGripDrag() {
+  const grip = document.querySelector(".panel-grip");
+  const sheet = document.querySelector(".panel-sheet");
+  const MIN_H = 40;
+  const MAX_H = 96;
+  let startY = null;
+  let startH = null;
+
+  function getStartH() {
+    const px = parseFloat(getComputedStyle(sheet).maxHeight);
+    return isNaN(px) ? 78 : (px / window.innerHeight) * 100;
+  }
+
+  function clamp(h) {
+    return Math.min(MAX_H, Math.max(MIN_H, h));
+  }
+
+  grip.addEventListener("touchstart", (e) => {
+    startY = e.touches[0].clientY;
+    startH = getStartH();
+    e.preventDefault();
+  }, { passive: false });
+
+  grip.addEventListener("touchmove", (e) => {
+    if (startY === null) return;
+    const delta = (startY - e.touches[0].clientY) / window.innerHeight * 100;
+    sheet.style.setProperty("--sheet-h", clamp(startH + delta).toFixed(1) + "dvh");
+    e.preventDefault();
+  }, { passive: false });
+
+  grip.addEventListener("touchend", () => { startY = null; startH = null; });
+
+  grip.addEventListener("mousedown", (e) => {
+    startY = e.clientY;
+    startH = getStartH();
+    e.preventDefault();
+    const onMove = (ev) => {
+      const delta = (startY - ev.clientY) / window.innerHeight * 100;
+      sheet.style.setProperty("--sheet-h", clamp(startH + delta).toFixed(1) + "dvh");
+    };
+    const onUp = () => {
+      document.removeEventListener("mousemove", onMove);
+      document.removeEventListener("mouseup", onUp);
+      startY = null; startH = null;
+    };
+    document.addEventListener("mousemove", onMove);
+    document.addEventListener("mouseup", onUp);
+  });
 }
 
 function init() {
