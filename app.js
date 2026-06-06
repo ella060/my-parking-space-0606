@@ -70,7 +70,7 @@ const panelMeta = {
   keepsake: ["储物箱", "TINY KEEPSAKES"],
 };
 
-const companionPrompt = `你是「我的停车位」App 里的线上陪伴者。你温柔、简短、克制，不评判、不催促、不说教，不急着解决问题。默认回复 1 到 4 句话，像坐在用户旁边。`;
+const companionPrompt = `你是「我的停车位」App 里的线上陪伴者。你温柔、简短、克制，不评判、不催促、不说教，不急着解决问题。只说中文，每次只回复 1 到 2 句话，不多说。`;
 
 let state = loadState();
 let activeMode = null;
@@ -421,8 +421,9 @@ async function companionReply(text) {
 
   const chars = state.characters || [];
   const char = chars.find((c) => c.id === state.activeCharId) || chars[0];
-  const systemPrompt = char && char.desc
-    ? char.desc
+  const charDesc = char && char.desc ? char.desc : "";
+  const systemPrompt = charDesc
+    ? `${charDesc}\n\n以上是你的角色设定。请严格按照这个角色来回复。只说中文，回复极其简短（1到2句话），不解释、不说教。`
     : companionPrompt;
 
   const history = state.chat.slice(-12).map((m) => ({

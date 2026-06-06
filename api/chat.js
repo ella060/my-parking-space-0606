@@ -16,7 +16,7 @@ export default async function handler(req, res) {
       },
       body: JSON.stringify({
         model: "deepseek-chat",
-        max_tokens: 256,
+        max_tokens: 120,
         messages: [
           { role: "system", content: systemPrompt || "你是一个温柔的线上陪伴者，用简短的中文回复，1到4句话。" },
           ...messages,
