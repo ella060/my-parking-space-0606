@@ -526,7 +526,8 @@ function bindGlobalEvents() {
     if (target.dataset.soundPreset) {
       state.soundPreset = target.dataset.soundPreset;
       saveState();
-      if (audio) { stopAmbient(); startAmbient(); }
+      if (audio) stopAmbient();
+      startAmbient();
       renderPanel();
     }
     if (action === "save-journal") {
@@ -705,7 +706,7 @@ function startAmbient() {
     lp.type = "lowpass";
     lp.frequency.value = 900;
     const outGain = ctx.createGain();
-    outGain.gain.value = 0.03;
+    outGain.gain.value = 0.045;
     src.connect(bp);
     bp.connect(lp);
     lp.connect(outGain);
@@ -717,7 +718,7 @@ function startAmbient() {
     lfo.type = "sine";
     lfo.frequency.value = 0.1;
     const lfoGain = ctx.createGain();
-    lfoGain.gain.value = 0.025;
+    lfoGain.gain.value = 0.018;
     lfo.connect(lfoGain);
     lfoGain.connect(outGain.gain);
     lfo.start();
