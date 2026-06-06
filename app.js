@@ -108,6 +108,7 @@ function loadState() {
     },
     characters: [{ id: "char-0", name: "默认陪伴者", desc: "温柔、简短、克制，像坐在你旁边" }],
     activeCharId: "char-0",
+    soundPreset: "rain",
   };
 
   try {
@@ -118,6 +119,7 @@ function loadState() {
       timer: { ...fallback.timer, ...saved.timer },
       characters: (saved.characters && saved.characters.length) ? saved.characters : fallback.characters,
       activeCharId: saved.activeCharId || "char-0",
+      soundPreset: saved.soundPreset || "rain",
     } : fallback;
   } catch {
     return fallback;
@@ -211,11 +213,21 @@ function renderPanel() {
 }
 
 function renderDaze() {
-  const soundLabel = audio ? "停下白噪音" : "打开白噪音";
+  const soundLabel = audio ? "关闭声音" : "打开声音";
+  const presets = [
+    { key: "white", label: "白噪音" },
+    { key: "rain",  label: "雨声" },
+    { key: "wave",  label: "海浪" },
+    { key: "fire",  label: "壁炉" },
+  ];
+  const presetChips = presets.map((p) =>
+    `<button class="preset-chip ${state.soundPreset === p.key ? "is-active" : ""}" type="button" data-sound-preset="${p.key}">${p.label}</button>`
+  ).join("");
   return `
     <div class="mode-block">
       <div class="breathing-window" aria-label="缓慢起伏的窗景"></div>
       <p class="quiet-copy">你不用盯着什么，也不用马上变好。可以只听一会儿，把肩膀放低一点。</p>
+      <div class="sound-presets">${presetChips}</div>
       <div class="sound-row">
         <button class="secondary-action" type="button" data-panel-action="toggle-sound">${soundLabel}</button>
         <button class="secondary-action" type="button" data-panel-action="soft-line">给我一句话</button>
@@ -502,7 +514,7 @@ function bindGlobalEvents() {
   });
 
   panelContent.addEventListener("click", (event) => {
-    const target = event.target.closest("[data-panel-action], [data-duration], [data-theme-choice], [data-char-id], [data-del-char], [data-del-entry]");
+    const target = event.target.closest("[data-panel-action], [data-duration], [data-theme-choice], [data-char-id], [data-del-char], [data-del-entry], [data-sound-preset]");
     if (!target) return;
 
     const action = target.dataset.panelAction;
@@ -511,6 +523,12 @@ function bindGlobalEvents() {
 
     if (action === "toggle-sound") toggleAmbient();
     if (action === "soft-line") updateSoftLine();
+    if (target.dataset.soundPreset) {
+      state.soundPreset = target.dataset.soundPreset;
+      saveState();
+      if (audio) { stopAmbient(); startAmbient(); }
+      renderPanel();
+    }
     if (action === "save-journal") {
       const draft = document.querySelector("#journalDraft");
       const text = (draft ? draft.value : state.journalDraft).trim();
@@ -596,36 +614,148 @@ function toggleAmbient() {
 
 function startAmbient() {
   const AudioContext = window.AudioContext || window.webkitAudioContext;
-  const context = new AudioContext();
-  const bufferSize = context.sampleRate * 2;
-  const buffer = context.createBuffer(1, bufferSize, context.sampleRate);
-  const output = buffer.getChannelData(0);
+  const ctx = new AudioContext();
+  const preset = state.soundPreset || "rain";
+  let nodes = [];
 
-  for (let i = 0; i < bufferSize; i += 1) {
-    output[i] = (Math.random() * 2 - 1) * 0.55;
+  function whiteBuffer() {
+    const bufferSize = ctx.sampleRate * 2;
+    const buf = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const out = buf.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) out[i] = Math.random() * 2 - 1;
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    return src;
   }
 
-  const source = context.createBufferSource();
-  const filter = context.createBiquadFilter();
-  const gain = context.createGain();
+  function brownBuffer() {
+    const bufferSize = ctx.sampleRate * 2;
+    const buf = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const out = buf.getChannelData(0);
+    let b = 0;
+    for (let i = 0; i < bufferSize; i++) {
+      b += (Math.random() * 2 - 1) * 0.02;
+      b = Math.max(-1, Math.min(1, b));
+      out[i] = b;
+    }
+    const src = ctx.createBufferSource();
+    src.buffer = buf;
+    src.loop = true;
+    return src;
+  }
 
-  source.buffer = buffer;
-  source.loop = true;
-  filter.type = "lowpass";
-  filter.frequency.value = 760;
-  gain.gain.value = 0.035;
+  if (preset === "white") {
+    const src = whiteBuffer();
+    const filter = ctx.createBiquadFilter();
+    filter.type = "lowpass";
+    filter.frequency.value = 760;
+    const gain = ctx.createGain();
+    gain.gain.value = 0.035;
+    src.connect(filter);
+    filter.connect(gain);
+    gain.connect(ctx.destination);
+    src.start();
+    nodes = [src];
 
-  source.connect(filter);
-  filter.connect(gain);
-  gain.connect(context.destination);
-  source.start();
+  } else if (preset === "rain") {
+    // 主噪音层：低频雨沙沙
+    const src1 = whiteBuffer();
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 400;
+    const mainGain = ctx.createGain();
+    mainGain.gain.value = 0.07;
+    src1.connect(lp);
+    lp.connect(mainGain);
+    mainGain.connect(ctx.destination);
+    src1.start();
 
-  audio = { context, source };
+    // 高频层：雨滴打击感
+    const src2 = whiteBuffer();
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 1200;
+    bp.Q.value = 2;
+    const hiGain = ctx.createGain();
+    hiGain.gain.value = 0.018;
+    src2.connect(bp);
+    bp.connect(hiGain);
+    hiGain.connect(ctx.destination);
+    src2.start();
+
+    // LFO：模拟雨势忽大忽小
+    const lfo = ctx.createOscillator();
+    lfo.frequency.value = 0.15;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.02;
+    lfo.connect(lfoGain);
+    lfoGain.connect(mainGain.gain);
+    lfo.start();
+    nodes = [src1, src2, lfo];
+
+  } else if (preset === "wave") {
+    // 主噪音：带通模拟浪花声
+    const src = whiteBuffer();
+    const bp = ctx.createBiquadFilter();
+    bp.type = "bandpass";
+    bp.frequency.value = 500;
+    bp.Q.value = 0.8;
+    const lp = ctx.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 900;
+    const outGain = ctx.createGain();
+    outGain.gain.value = 0.03;
+    src.connect(bp);
+    bp.connect(lp);
+    lp.connect(outGain);
+    outGain.connect(ctx.destination);
+    src.start();
+
+    // LFO：浪涌节奏 (~0.1Hz，周期约10秒)
+    const lfo = ctx.createOscillator();
+    lfo.type = "sine";
+    lfo.frequency.value = 0.1;
+    const lfoGain = ctx.createGain();
+    lfoGain.gain.value = 0.025;
+    lfo.connect(lfoGain);
+    lfoGain.connect(outGain.gain);
+    lfo.start();
+    nodes = [src, lfo];
+
+  } else if (preset === "fire") {
+    // 棕色噪音：壁炉低频底噪
+    const src1 = brownBuffer();
+    const lp1 = ctx.createBiquadFilter();
+    lp1.type = "lowpass";
+    lp1.frequency.value = 220;
+    const gain1 = ctx.createGain();
+    gain1.gain.value = 0.055;
+    src1.connect(lp1);
+    lp1.connect(gain1);
+    gain1.connect(ctx.destination);
+    src1.start();
+
+    // 白噪音极低频：噼啪声底层
+    const src2 = whiteBuffer();
+    const lp2 = ctx.createBiquadFilter();
+    lp2.type = "lowpass";
+    lp2.frequency.value = 80;
+    const gain2 = ctx.createGain();
+    gain2.gain.value = 0.015;
+    src2.connect(lp2);
+    lp2.connect(gain2);
+    gain2.connect(ctx.destination);
+    src2.start();
+    nodes = [src1, src2];
+  }
+
+  audio = { context: ctx, nodes };
 }
 
 function stopAmbient() {
   if (!audio) return;
-  audio.source.stop();
+  audio.nodes.forEach((n) => { try { n.stop(); } catch {} });
   audio.context.close();
   audio = null;
 }

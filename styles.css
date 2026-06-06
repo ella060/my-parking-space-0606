@@ -1198,6 +1198,29 @@ button {
   gap: 8px;
 }
 
+.sound-presets {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.preset-chip {
+  padding: 6px 14px;
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  background: none;
+  color: var(--muted);
+  font-family: var(--font);
+  font-size: 0.82rem;
+  cursor: pointer;
+  transition: border-color 150ms, background 150ms, color 150ms;
+}
+.preset-chip.is-active {
+  border-color: rgba(213, 154, 98, 0.72);
+  background: rgba(213, 154, 98, 0.15);
+  color: var(--paper);
+}
+
 .clear-chat-btn {
   display: block;
   margin: 4px auto 0;
