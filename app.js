@@ -105,6 +105,7 @@ function loadState() {
       duration: 18 * 60,
       remaining: 18 * 60,
       running: false,
+      done: false,
     },
     characters: [{ id: "char-0", name: "默认陪伴者", desc: "温柔、简短、克制，像坐在你旁边" }],
     activeCharId: "char-0",
@@ -116,7 +117,7 @@ function loadState() {
     return saved ? {
       ...fallback,
       ...saved,
-      timer: { ...fallback.timer, ...saved.timer },
+      timer: { ...fallback.timer, ...saved.timer, running: false, done: false },
       characters: (saved.characters && saved.characters.length) ? saved.characters : fallback.characters,
       activeCharId: saved.activeCharId || "char-0",
       soundPreset: saved.soundPreset || "rain",
@@ -310,8 +311,15 @@ function renderJournal() {
 }
 
 function renderFocus() {
+  const doneBanner = state.timer.done ? `
+    <div class="timer-done-banner">
+      <span>时间到了。你刚刚安静地留住了这一小段。</span>
+      <button class="timer-done-close" type="button" data-panel-action="dismiss-timer-done">知道了</button>
+    </div>` : "";
+  const isCustom = ![5, 10, 18, 25].includes(state.timer.duration / 60);
   return `
     <div class="mode-block">
+      ${doneBanner}
       <div class="timer-face">
         <div>
           <div class="timer-time" id="timerTime">${formatTime(state.timer.remaining)}</div>
@@ -325,6 +333,11 @@ function renderFocus() {
               `<button class="choice-action ${state.timer.duration === minute * 60 ? "is-selected" : ""}" type="button" data-duration="${minute}">${minute} 分</button>`,
           )
           .join("")}
+        <label class="custom-duration-label">
+          <input id="customDuration" class="custom-duration-input" type="number"
+                 min="1" max="99999" placeholder="秒" ${isCustom ? `value="${state.timer.duration}"` : ""} />
+          <span>秒</span>
+        </label>
       </div>
       <div class="timer-actions">
         <button class="secondary-action" type="button" data-panel-action="toggle-timer">${state.timer.running ? "暂停" : "开始"}</button>
@@ -429,6 +442,21 @@ function bindPanelControls() {
       state.keepsakes.push({ text, time: formatDate(new Date()) });
       saveState();
       renderPanel();
+    });
+  }
+
+  const customDur = document.querySelector("#customDuration");
+  if (customDur) {
+    customDur.addEventListener("change", () => {
+      const v = parseInt(customDur.value, 10);
+      if (v >= 1 && v <= 99999) {
+        stopTimer();
+        state.timer.done = false;
+        state.timer.duration = v;
+        state.timer.remaining = v;
+        saveState();
+        renderPanel();
+      }
     });
   }
 }
@@ -549,6 +577,13 @@ function bindGlobalEvents() {
     }
     if (action === "toggle-timer") toggleTimer();
     if (action === "reset-timer") resetTimer();
+    if (action === "dismiss-timer-done") {
+      state.timer.done = false;
+      state.timer.remaining = state.timer.duration;
+      stopTimer();
+      saveState();
+      renderPanel();
+    }
     if (action === "clear-chat") {
       state.chat = [];
       saveState();
@@ -824,6 +859,7 @@ function stopTimer() {
 function resetTimer() {
   stopTimer();
   state.timer.remaining = state.timer.duration;
+  state.timer.done = false;
   saveState();
   renderPanel();
 }
@@ -835,6 +871,7 @@ function tickTimer() {
 
   if (state.timer.remaining === 0) {
     stopTimer();
+    state.timer.done = true;
     state.chat.push({
       role: "companion",
       text: "刚刚那一小段时间，已经被你安静地留给自己了。",
